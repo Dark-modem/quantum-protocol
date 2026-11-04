@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "type": "desired",
+  "data": {
+    "revision": "1796470000000000002",
+    "matrix": {
+      "instance": "matrix",
+      "action": "apply",
+      "hub": {
+        "family": "ipv4",
+        "port": 51820,
+        "addr": "198.51.100.10",
+        "ports": [443, 8443],
+        "token": "fixture-token-not-a-secret"
+      }
+    }
+  }
+}

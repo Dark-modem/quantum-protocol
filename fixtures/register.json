@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "type": "register",
+  "data": {
+    "instance": "matrix",
+    "token": "fixture-token-not-a-secret",
+    "name": "ir-teh-1",
+    "host_file": "fixture-tinc-host-file-content"
+  }
+}

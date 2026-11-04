@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "type": "welcome",
+  "data": {
+    "ok": true,
+    "server": "v1.29.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "type": "result",
+  "data": {
+    "id": "cmd_fixture0001",
+    "ok": true,
+    "output": "restarted"
+  }
+}

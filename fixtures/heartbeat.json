@@ -1,0 +1,61 @@
+{
+  "v": 1,
+  "type": "heartbeat",
+  "data": {
+    "ts": 1796479200,
+    "uptime_s": 3600,
+    "state": {
+      "applied_revision": "1796470000000000001",
+      "matrix": [
+        {
+          "instance": "matrix",
+          "role": "hub",
+          "network": "qmx",
+          "enabled": true,
+          "service": true,
+          "iface": "qmx0",
+          "iface_up": true,
+          "port": 51820,
+          "mesh_ip": "10.189.0.1",
+          "peers": [
+            {"name": "ir-teh-1", "ip": "10.189.0.2", "ok": true, "latency_ms": 12.5}
+          ],
+          "registered": true,
+          "revision": "1796470000000000001"
+        }
+      ],
+      "health": [
+        {
+          "instance": "matrix",
+          "window_s": 60,
+          "samples": 60,
+          "latency_ms": 12.5,
+          "jitter_ms": 1.2,
+          "loss_pct": 0,
+          "reachable": true,
+          "service": true,
+          "iface_up": true,
+          "quality": "good"
+        }
+      ],
+      "traffic": {
+        "ts": 1796479200,
+        "ifaces": [
+          {"name": "eth0", "kind": "physical", "rx": 1000, "tx": 2000, "known": true},
+          {"name": "qmx0", "kind": "tunnel", "rx": 500, "tx": 700, "known": true}
+        ]
+      },
+      "resources": {
+        "cpu_cores": 4,
+        "cpu_percent": 7.5,
+        "load_avg_1": 0.4,
+        "mem_total_mb": 4096,
+        "mem_used_mb": 1024,
+        "disk_total_gb": 40,
+        "disk_used_gb": 12,
+        "uptime_s": 3600,
+        "virt": "kvm"
+      }
+    }
+  }
+}

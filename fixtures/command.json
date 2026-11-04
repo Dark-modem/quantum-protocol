@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "type": "command",
+  "data": {
+    "id": "cmd_fixture0001",
+    "op": "matrix.restart",
+    "params": {"instance": "matrix"}
+  }
+}
