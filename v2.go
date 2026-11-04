@@ -81,6 +81,17 @@ type DesiredV2 struct {
 	Tunnels      []TunnelSpec     `json:"tunnels,omitempty"`
 	Balancing    *BalancingPolicy `json:"balancing,omitempty"`
 	HardeningRef string           `json:"hardening_ref,omitempty"`
+	// Hardening carries the Profile document of HARDENING.md §2,
+	// opaquely (see the comment above DesiredFieldHardening). Absent =
+	// leave the host's hardening state alone.
+	Hardening json.RawMessage `json:"hardening,omitempty"`
+	// HardeningTimeoutSec is the optional safe-apply confirm window in
+	// seconds (>= 120; the module clamps). Absent/0 = module default.
+	HardeningTimeoutSec int `json:"hardening_timeout_sec,omitempty"`
+	// TargetGroups name balancing groups of tunnels; ForwardRules
+	// publish service ports balanced across a group.
+	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
+	Forwards     []ForwardRule `json:"forwards,omitempty"`
 }
 
 // EngineSpec enables or disables one engine on the agent. A disabled
@@ -219,4 +230,57 @@ type HeartbeatV2 struct {
 	TS      int64          `json:"ts"`
 	UptimeS int64          `json:"uptime_s"`
 	State   *StateReportV2 `json:"state,omitempty"`
+}
+
+// ---- Phase 2A additions: hardening desired state + service forwards ----
+
+// Hardening desired-state fields on DesiredV2 (HARDENING.md §5a). The
+// hardening document is the Profile JSON of HARDENING.md §2; the
+// protocol carries it opaquely — the agent's hardening module validates
+// it (the Profile type lives with the module, which imports this
+// package, so the dependency cannot point the other way).
+const (
+	// DesiredFieldHardening is the DesiredV2 JSON key carrying the
+	// hardening Profile document.
+	DesiredFieldHardening = "hardening"
+	// DesiredFieldHardeningTimeoutSec is the optional safe-apply window
+	// in seconds (module default and minimum: 120).
+	DesiredFieldHardeningTimeoutSec = "hardening_timeout_sec"
+)
+
+// Hardening desired-state is transported opaquely so the Profile schema
+// can evolve with the module (version field inside the document, §2).
+// A v2 desired payload example:
+//
+//	{"revision": "42", "hardening": {...Profile...}, "hardening_timeout_sec": 120}
+//
+// The ack answers with the journal reference so the panel UI can show
+// the ARMED state and its confirm banner (fields added to Ack below).
+
+// TargetGroup names a balancing group of tunnels: every ENABLED tunnel
+// of the agent whose TopologyID matches, optionally filtered to one
+// remote server. Numbers are variable by design — N Iran servers per
+// datacenter, M foreign servers, K tunnels per pair, each tunnel free to
+// use a different engine — so a group is a selector, never a list.
+type TargetGroup struct {
+	ID           string `json:"id"`
+	TopologyID   string `json:"topology_id"`
+	RemoteServer string `json:"remote_server,omitempty"` // empty = whole foreign pool of the topology
+}
+
+// ForwardRule publishes one service port on an Iran agent and
+// load-balances it across the tunnels of its target group (see
+// TargetGroup). The agent enforces it locally with a kernel path
+// (nftables) and keeps it working when the panel is dead.
+type ForwardRule struct {
+	ID          string `json:"id"`
+	ListenPort  int    `json:"listen_port"`
+	Proto       string `json:"proto"` // "tcp" | "udp" | "both"
+	TargetGroup string `json:"target_group"`
+	TargetPort  int    `json:"target_port"` // port on the foreign side; 0 = same as ListenPort
+}
+
+// ValidForwardProto reports whether proto is one of the accepted values.
+func ValidForwardProto(p string) bool {
+	return p == "tcp" || p == "udp" || p == "both"
 }

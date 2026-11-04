@@ -1,0 +1,8 @@
+{
+  "v": 2,
+  "type": "command",
+  "data": {
+    "id": "cmd_hardening0006",
+    "op": "hardening.status"
+  }
+}

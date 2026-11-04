@@ -194,12 +194,13 @@ func TestProfileCommandFixtures(t *testing.T) {
 			t.Errorf("%s: mutating profile op without confirm=yes: %v", f, c.Params)
 		}
 	}
-	// The apply fixtures carry the automatic-rollback timer; rollbacks may too.
-	_, _, payload, _ := DecodeAny(readFixture(t, "command-hardening-apply.json"))
+	// The netopt profile fixtures carry the automatic-rollback timer via
+	// rollback_timer_s; hardening uses rollback_timeout_sec (§5b).
+	_, _, payload, _ := DecodeAny(readFixture(t, "command-netopt-profile-apply.json"))
 	var c Command
 	_ = json.Unmarshal(payload, &c)
-	if got := RollbackTimerS(c.Params); got != 300 {
-		t.Errorf("hardening.apply rollback timer = %d, want 300", got)
+	if got := RollbackTimerS(c.Params); got != 600 {
+		t.Errorf("netopt.profile.apply rollback timer = %d, want 600", got)
 	}
 	if got := RollbackTimerS(nil); got != 0 {
 		t.Errorf("RollbackTimerS(nil) = %d, want 0", got)
@@ -229,5 +230,158 @@ func TestV1AgentStillWorksWithV2Peer(t *testing.T) {
 	}
 	if _, _, err := Decode(welcome); err != nil {
 		t.Fatalf("v1 peer must be able to Decode the v1-encoded welcome: %v", err)
+	}
+}
+
+// ---- Phase 2A: hardening desired state + forwards ----
+
+// TestHardeningDesiredFixtureSemantics pins the §5a desired contract:
+// the Profile rides opaquely, the timeout rides as a number, and the
+// rest of DesiredV2 is untouched by its presence.
+func TestHardeningDesiredFixtureSemantics(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "desired-v2-hardening.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d DesiredV2
+	if err := json.Unmarshal(data, &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.HardeningTimeoutSec != 120 {
+		t.Fatalf("hardening_timeout_sec = %d, want 120", d.HardeningTimeoutSec)
+	}
+	if len(d.Tunnels) != 0 || len(d.Engines) != 0 {
+		t.Fatalf("hardening-only desired must not invent tunnels/engines: %+v", d)
+	}
+	// The Profile document survives byte-identically: the agent's
+	// hardening module owns the schema (HARDENING.md §2).
+	want := `{"version": 1, "name": "conservative"`
+	if !strings.HasPrefix(string(d.Hardening), want) {
+		t.Fatalf("hardening document altered: %.80s", d.Hardening)
+	}
+	if !strings.Contains(string(d.Hardening), `"fail2ban"`) {
+		t.Fatal("profile body incomplete")
+	}
+}
+
+// TestForwardsFixtureSemantics pins the service-forward contract: a
+// target group is a SELECTOR (topology + optional remote server), never
+// a tunnel list, so the same desired shape serves any N/M/K numbers and
+// any per-tunnel engine mix.
+func TestForwardsFixtureSemantics(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "desired-v2-forwards.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d DesiredV2
+	if err := json.Unmarshal(data, &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.TargetGroups) != 2 || len(d.Forwards) != 2 {
+		t.Fatalf("groups=%d forwards=%d", len(d.TargetGroups), len(d.Forwards))
+	}
+	pool := d.TargetGroups[1]
+	if pool.ID != "grp-drak1-pool" || pool.RemoteServer != "" {
+		t.Fatalf("pool group must span the whole foreign pool: %+v", pool)
+	}
+	for _, f := range d.Forwards {
+		if !ValidForwardProto(f.Proto) {
+			t.Errorf("forward %s: bad proto %q", f.ID, f.Proto)
+		}
+		if f.TargetPort == 0 || f.ListenPort == 0 {
+			t.Errorf("forward %s: ports must be set", f.ID)
+		}
+	}
+	// The tunnels in the same document use three different engines across
+	// two topologies — a group resolves to whatever is enabled, so the
+	// engine mix is free.
+	engines := map[string]int{}
+	for _, tun := range d.Tunnels {
+		engines[tun.Engine]++
+	}
+	if engines["matrix"] != 3 || engines["wireguard"] != 1 || engines["backhaul"] != 2 {
+		t.Fatalf("engine mix drifted: %v", engines)
+	}
+}
+
+// TestHardeningCommandFixtures pins the §5b imperative surface: six
+// commands, exactly three mutating, apply carries the profile +
+// safe_apply + rollback_timeout_sec, confirm/rollback carry journal_id.
+func TestHardeningCommandFixtures(t *testing.T) {
+	expectParams := map[string]func(p map[string]string){
+		"command-hardening-detect.json": func(p map[string]string) {},
+		"command-hardening-plan.json":   func(p map[string]string) { mustContain(t, p, "profile") },
+		"command-hardening-apply.json": func(p map[string]string) {
+			mustContain(t, p, "profile")
+			mustContain(t, p, "safe_apply")
+			mustContain(t, p, "rollback_timeout_sec")
+		},
+		"command-hardening-confirm.json": func(p map[string]string) { mustContain(t, p, "journal_id") },
+		"command-hardening-rollback.json": func(p map[string]string) {
+			if _, ok := p["journal_id"]; !ok {
+				t.Error("rollback: journal_id param missing (empty string = latest journal)")
+			}
+		},
+		"command-hardening-status.json": func(p map[string]string) {},
+	}
+	for f, check := range expectParams {
+		_, _, data, err := DecodeAny(readFixture(t, f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var c Command
+		if err := json.Unmarshal(data, &c); err != nil {
+			t.Fatal(err)
+		}
+		if !ValidCommands[c.Op] {
+			t.Errorf("%s: op %q not allowlisted", f, c.Op)
+		}
+		mutating := strings.HasSuffix(c.Op, ".apply") || strings.HasSuffix(c.Op, ".confirm") ||
+			strings.HasSuffix(c.Op, ".rollback")
+		if MutatingOps[c.Op] != mutating {
+			t.Errorf("%s: op %q mutating=%v, want %v", f, c.Op, MutatingOps[c.Op], mutating)
+		}
+		if mutating && c.Params[ParamConfirm] != "yes" {
+			t.Errorf("%s: mutating op without confirm=yes", f)
+		}
+		check(c.Params)
+	}
+	if CapHardening != "hardening" {
+		t.Fatalf("CapHardening = %q", CapHardening)
+	}
+}
+
+func mustContain(t *testing.T, p map[string]string, key string) {
+	t.Helper()
+	if _, ok := p[key]; !ok {
+		t.Errorf("param %q missing (got %v)", key, p)
+	}
+}
+
+// TestHardeningAckFixture pins the §5a ack additions: journal reference,
+// ARMED flag, timer unit and the plan document ride the v1 ack
+// additively (v1 panels drop the unknown fields).
+func TestHardeningAckFixture(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "ack-hardening.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var a Ack
+	if err := json.Unmarshal(data, &a); err != nil {
+		t.Fatal(err)
+	}
+	if !a.OK || a.Kind != "hardening" || a.JournalID == "" || !a.Armed || a.TimerUnit == "" {
+		t.Fatalf("ack = %+v", a)
+	}
+	if !strings.HasPrefix(string(a.Plan), "{") {
+		t.Fatalf("plan missing: %s", a.Plan)
+	}
+	// A v1-shaped decode of the same bytes keeps working (additive wire).
+	var legacy struct {
+		Revision string `json:"revision"`
+		OK       bool   `json:"ok"`
+	}
+	if err := json.Unmarshal(data, &legacy); err != nil || !legacy.OK || legacy.Revision != a.Revision {
+		t.Fatalf("v1-shaped decode broke: %+v %v", legacy, err)
 	}
 }

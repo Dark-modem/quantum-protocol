@@ -41,6 +41,14 @@ var fixtureCases = []fixtureCase{
 	{"command-hardening-rollback.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
 	{"command-netopt-profile-apply.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
 	{"command-netopt-profile-rollback.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	// v2 (Phase 2A): hardening per HARDENING.md §5 + service forwards
+	{"command-hardening-detect.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-hardening-plan.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-hardening-confirm.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-hardening-status.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"desired-v2-hardening.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
+	{"desired-v2-forwards.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
+	{"ack-hardening.json", MsgAck, ProtoVersionV2, func() any { return &Ack{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {
@@ -180,10 +188,15 @@ func TestWireStringsPinned(t *testing.T) {
 		"CmdNetStatus":          CmdNetStatus,
 		"CmdNetRB":              CmdNetRB,
 		"CmdNetRevert":          CmdNetRevert,
+		"CmdHardeningDetect":    CmdHardeningDetect,
+		"CmdHardeningPlan":      CmdHardeningPlan,
 		"CmdHardeningApply":     CmdHardeningApply,
+		"CmdHardeningConfirm":   CmdHardeningConfirm,
 		"CmdHardeningRollback":  CmdHardeningRollback,
+		"CmdHardeningStatus":    CmdHardeningStatus,
 		"CmdNetProfileApply":    CmdNetProfileApply,
 		"CmdNetProfileRollback": CmdNetProfileRollback,
+		"CapHardening":          CapHardening,
 	}
 	want := map[string]string{
 		"HeaderAgentID":         "X-Agent-Id",
@@ -222,10 +235,15 @@ func TestWireStringsPinned(t *testing.T) {
 		"CmdNetStatus":          "netopt.status",
 		"CmdNetRB":              "netopt.rollback",
 		"CmdNetRevert":          "netopt.revert",
+		"CmdHardeningDetect":    "hardening.detect",
+		"CmdHardeningPlan":      "hardening.plan",
 		"CmdHardeningApply":     "hardening.apply",
+		"CmdHardeningConfirm":   "hardening.confirm",
 		"CmdHardeningRollback":  "hardening.rollback",
+		"CmdHardeningStatus":    "hardening.status",
 		"CmdNetProfileApply":    "netopt.profile.apply",
 		"CmdNetProfileRollback": "netopt.profile.rollback",
+		"CapHardening":          "hardening",
 	}
 	for name, got := range wire {
 		if name == "ProtoVersion" {
@@ -311,7 +329,8 @@ func TestValidCommandsComplete(t *testing.T) {
 		CmdFwTeardown: true, CmdPortCheck: true, CmdPortList: true,
 		CmdNetDetect: true, CmdNetPlan: true, CmdNetApply: true, CmdNetStatus: true,
 		CmdNetRB: true, CmdNetRevert: true,
-		CmdHardeningApply: true, CmdHardeningRollback: true,
+		CmdHardeningDetect: true, CmdHardeningPlan: true, CmdHardeningApply: true,
+		CmdHardeningConfirm: true, CmdHardeningRollback: true, CmdHardeningStatus: true,
 		CmdNetProfileApply: true, CmdNetProfileRollback: true,
 	}
 	for op := range cmds {
@@ -328,8 +347,12 @@ func TestValidCommandsComplete(t *testing.T) {
 		}
 	}
 	// Profile applies and rollbacks are host-mutating: they must require
-	// the confirm param like the other mutating ops.
-	for _, op := range []string{CmdHardeningApply, CmdHardeningRollback, CmdNetProfileApply, CmdNetProfileRollback} {
+	// the confirm param like the other mutating ops (HARDENING.md §5b:
+	// apply/confirm/rollback; detect/plan/status are read-only).
+	if MutatingOps[CmdHardeningDetect] || MutatingOps[CmdHardeningPlan] || MutatingOps[CmdHardeningStatus] {
+		t.Error("hardening detect/plan/status must stay read-only")
+	}
+	for _, op := range []string{CmdHardeningApply, CmdHardeningConfirm, CmdHardeningRollback, CmdNetProfileApply, CmdNetProfileRollback} {
 		if !MutatingOps[op] {
 			t.Errorf("profile op %q must be in MutatingOps", op)
 		}

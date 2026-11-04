@@ -1,0 +1,13 @@
+{
+  "v": 2,
+  "type": "ack",
+  "data": {
+    "revision": "1796470000000000020",
+    "ok": true,
+    "kind": "hardening",
+    "journal_id": "hp_1699999999_ab12cd34",
+    "armed": true,
+    "timer_unit": "quantum-harden-hp_1699999999_ab12cd34",
+    "plan": {"items": [{"action": "add-rule", "detail": "443/tcp from any (service:decoy)"}]}
+  }
+}

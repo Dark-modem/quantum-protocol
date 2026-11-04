@@ -1,0 +1,11 @@
+{
+  "v": 2,
+  "type": "command",
+  "data": {
+    "id": "cmd_hardening0004",
+    "op": "hardening.plan",
+    "params": {
+      "profile": "{\"version\":1,\"name\":\"conservative\"}"
+    }
+  }
+}

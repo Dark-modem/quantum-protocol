@@ -1,0 +1,5 @@
+{
+  "v": 2,
+  "type": "command",
+  "data": {"id": "cmd_hardening0005", "op": "hardening.confirm", "params": {"confirm": "yes", "journal_id": "hp_1699999999_ab12cd34"}}
+}

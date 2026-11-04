@@ -56,6 +56,10 @@ const (
 	CapTraffic    = "traffic"
 	CapHealth     = "health"
 	CapNodeDetect = "node-detect" // read-only PasarGuard Node detection
+	// CapHardening is advertised in hello only when the agent's
+	// hardening module is wired (HARDENING.md §5c); the panel must not
+	// push hardening desired state to agents without it.
+	CapHardening = "hardening"
 )
 
 // Envelope types.
@@ -100,11 +104,25 @@ const (
 	CmdNetRB      = "netopt.rollback"
 	CmdNetRevert  = "netopt.revert"
 
-	// v2 profile commands (hardening/netopt profiles). Mutating applies
-	// and rollbacks require params["confirm"] == "yes" and carry
-	// params["rollback_timer_s"]; see v2.go.
-	CmdHardeningApply     = "hardening.apply"
-	CmdHardeningRollback  = "hardening.rollback"
+	// v2 hardening commands (HARDENING.md §5b): the imperative path.
+	// apply arms the safe-apply journal (returns ARMED, not done); the
+	// panel must confirm within the rollback window or the agent rolls
+	// back automatically. MutatingOps gates apply/confirm/rollback with
+	// params["confirm"] == "yes" as in v1; the module's own safe-apply
+	// is a second, independent gate. Params per §5b: apply
+	// {profile, safe_apply, rollback_timeout_sec}, confirm
+	// {journal_id}, rollback {journal_id}, detect/plan/status as
+	// documented there.
+	CmdHardeningDetect   = "hardening.detect"
+	CmdHardeningPlan     = "hardening.plan"
+	CmdHardeningApply    = "hardening.apply"
+	CmdHardeningConfirm  = "hardening.confirm"
+	CmdHardeningRollback = "hardening.rollback"
+	CmdHardeningStatus   = "hardening.status"
+
+	// v2 netopt profile commands. Mutating applies and rollbacks require
+	// params["confirm"] == "yes" and carry params["rollback_timer_s"];
+	// see v2.go.
 	CmdNetProfileApply    = "netopt.profile.apply"
 	CmdNetProfileRollback = "netopt.profile.rollback"
 )
@@ -130,8 +148,12 @@ var ValidCommands = map[string]bool{
 	CmdNetStatus:          true,
 	CmdNetRB:              true,
 	CmdNetRevert:          true,
+	CmdHardeningDetect:    true,
+	CmdHardeningPlan:      true,
 	CmdHardeningApply:     true,
+	CmdHardeningConfirm:   true,
 	CmdHardeningRollback:  true,
+	CmdHardeningStatus:    true,
 	CmdNetProfileApply:    true,
 	CmdNetProfileRollback: true,
 }
@@ -145,6 +167,7 @@ var MutatingOps = map[string]bool{
 	CmdNetRB:              true,
 	CmdNetRevert:          true,
 	CmdHardeningApply:     true,
+	CmdHardeningConfirm:   true,
 	CmdHardeningRollback:  true,
 	CmdNetProfileApply:    true,
 	CmdNetProfileRollback: true,

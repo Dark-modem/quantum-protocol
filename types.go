@@ -192,6 +192,19 @@ type Ack struct {
 	OK       bool              `json:"ok"`
 	Error    string            `json:"error,omitempty"`
 	Detail   map[string]string `json:"detail,omitempty"`
+
+	// Hardening desired-state ack additions (HARDENING.md §5a). All
+	// fields are optional; v1 panels decode this struct and silently
+	// drop what they do not know, so the wire stays compatible.
+	Kind string `json:"kind,omitempty"` // e.g. "hardening"
+	// JournalID references the safe-apply journal entry ("hp_…").
+	JournalID string `json:"journal_id,omitempty"`
+	// Armed reports that safe-apply is pending confirmation (the panel
+	// UI must show the confirm banner; no confirm ⇒ automatic rollback).
+	Armed bool `json:"armed,omitempty"`
+	// TimerUnit is the systemd unit that will roll the change back.
+	TimerUnit string          `json:"timer_unit,omitempty"`
+	Plan      json.RawMessage `json:"plan,omitempty"` // the applied plan, for the UI diff
 }
 
 // Command is one allowlisted remote operation.
@@ -207,6 +220,12 @@ type CommandResult struct {
 	OK     bool   `json:"ok"`
 	Error  string `json:"error,omitempty"`
 	Output string `json:"output,omitempty"` // short diagnostic text only
+	// Data carries the structured result of typed ops that return more
+	// than text (HARDENING.md §5b: hardening.detect/plan/status answer
+	// with {state}, {plan}, {journal, armed, state}; apply answers with
+	// {journal, armed, timer_unit, verify}). Optional; v1 panels never
+	// see it because the ops are v2-gated by capabilities.
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // RegisterMsg is sent by a node agent after it applied its bundle:

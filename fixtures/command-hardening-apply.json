@@ -4,6 +4,11 @@
   "data": {
     "id": "cmd_hardening0001",
     "op": "hardening.apply",
-    "params": {"profile": "hardening/v3-baseline", "confirm": "yes", "rollback_timer_s": "300"}
+    "params": {
+      "confirm": "yes",
+      "profile": "{\"version\":1,\"name\":\"conservative\",\"firewall\":{\"default_deny_incoming\":true,\"allow_outgoing\":true,\"allows\":[{\"port\":443,\"proto\":\"tcp\",\"from\":\"\",\"owner\":\"service:decoy\"}],\"limits\":[{\"port\":22,\"proto\":\"tcp\",\"owner\":\"service:ssh\"}]},\"ssh\":{\"port\":0,\"key_only\":null,\"permit_root\":\"prohibit-password\",\"max_auth_tries\":0,\"fail2ban\":{\"enabled\":true,\"maxretry\":5,\"findtime_sec\":600,\"bantime_sec\":3600}},\"sysctl\":[{\"key\":\"net.ipv4.tcp_syncookies\",\"value\":\"1\"}],\"timesync\":{\"ensure_active\":true},\"logging\":{\"persistent_journal\":true}}",
+      "safe_apply": "true",
+      "rollback_timeout_sec": "120"
+    }
   }
 }

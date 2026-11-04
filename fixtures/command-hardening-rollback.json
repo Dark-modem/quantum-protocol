@@ -4,6 +4,6 @@
   "data": {
     "id": "cmd_hardening0002",
     "op": "hardening.rollback",
-    "params": {"profile": "hardening/v3-baseline", "confirm": "yes", "reason": "operator requested"}
+    "params": {"confirm": "yes", "journal_id": ""}
   }
 }

@@ -1,0 +1,36 @@
+{
+  "v": 2,
+  "type": "desired",
+  "data": {
+    "revision": "1796470000000000030",
+    "engines": [
+      {"id": "matrix", "enabled": true},
+      {"id": "wireguard", "enabled": true},
+      {"id": "backhaul", "enabled": true}
+    ],
+    "tunnels": [
+      {"id": "tun-drak1-hz1-a", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "matrix", "enabled": true},
+      {"id": "tun-drak1-hz1-b", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "wireguard", "enabled": true},
+      {"id": "tun-drak1-hz1-c", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "backhaul", "enabled": true},
+      {"id": "tun-drak1-hz2-a", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-2", "engine": "matrix", "enabled": true},
+      {"id": "tun-drak1-hz2-b", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-2", "engine": "backhaul", "enabled": true},
+      {"id": "tun-drak2-hz1-a", "topology_id": "topo-chekavak-hetzner", "local_server": "ir-chk-1", "remote_server": "hz-fra-1", "engine": "matrix", "enabled": true}
+    ],
+    "balancing": {
+      "weights": [
+        {"topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "weight": 70},
+        {"topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-2", "weight": 30}
+      ],
+      "health_check": {"interval_s": 15, "timeout_ms": 2000, "probe": "icmp", "consecutive_down": 3, "consecutive_up": 2},
+      "failover": {"prefer_order": ["hz-fra-1", "hz-fra-2"], "switch_back_s": 300, "max_loss_pct": 20}
+    },
+    "target_groups": [
+      {"id": "grp-drak1-hz1", "topology_id": "topo-drak-hetzner", "remote_server": "hz-fra-1"},
+      {"id": "grp-drak1-pool", "topology_id": "topo-drak-hetzner"}
+    ],
+    "forwards": [
+      {"id": "fw-ssh-jump", "listen_port": 2201, "proto": "tcp", "target_group": "grp-drak1-hz1", "target_port": 22},
+      {"id": "fw-web", "listen_port": 8443, "proto": "both", "target_group": "grp-drak1-pool", "target_port": 8443}
+    ]
+  }
+}
