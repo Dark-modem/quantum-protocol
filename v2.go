@@ -190,11 +190,40 @@ type StateReportV2 struct {
 	UpdateProgress  *UpdateProgress        `json:"update_progress,omitempty"`
 	NodeDetect      *NodeDetect            `json:"node_detect,omitempty"`
 	Errors          []string               `json:"errors,omitempty"`
+	// Hardening carries the safe-apply pending state so the panel UI
+	// shows the confirm banner and its deadline (Phase 2A).
+	Hardening *HardeningRuntime `json:"hardening,omitempty"`
+	// Forwards mirrors the enforced local forwarding (one entry per
+	// ForwardRule: healthy targets and the weights in effect).
+	Forwards []ForwardRuntime `json:"forwards,omitempty"`
 }
 
 // ---- v2 commands ------------------------------------------------------
 //
 // Hardening/netopt profile commands reuse the v1 command envelope and its
+
+// HardeningRuntime is the heartbeat-visible safe-apply state: the panel
+// shows a confirm banner while Armed, with DeadlineS as the unix second
+// the automatic rollback fires.
+type HardeningRuntime struct {
+	JournalID string `json:"journal_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Armed     bool   `json:"armed,omitempty"`
+	DeadlineS int64  `json:"deadline_s,omitempty"`
+	TimerUnit string `json:"timer_unit,omitempty"`
+}
+
+// ForwardRuntime mirrors one enforced ForwardRule: the healthy tunnel
+// ids in the rotation and the weights in effect (after resolution).
+type ForwardRuntime struct {
+	ID          string   `json:"id"`
+	ListenPort  int      `json:"listen_port"`
+	Proto       string   `json:"proto"`
+	TargetGroup string   `json:"target_group"`
+	Targets     []string `json:"targets,omitempty"`
+	Weights     []int    `json:"weights,omitempty"`
+}
+
 // params map. Mutating profile applies REQUIRE params["confirm"] == "yes"
 // (same rule as the v1 firewall/netopt ops) and SHOULD carry
 // params["rollback_timer_s"] (decimal seconds): the agent schedules an
@@ -283,4 +312,20 @@ type ForwardRule struct {
 // ValidForwardProto reports whether proto is one of the accepted values.
 func ValidForwardProto(p string) bool {
 	return p == "tcp" || p == "udp" || p == "both"
+}
+
+// NegotiateOrV1 clamps a controller-declared session version for the
+// agent side: 0/absent (v1 controller) negotiates v1; a future version
+// above what this agent speaks clamps DOWN to MaxSupportedVersion (the
+// agent must keep working with newer controllers for the messages it
+// knows); anything else in range is used verbatim.
+func NegotiateOrV1(controllerVersion int) int {
+	switch {
+	case controllerVersion < MinSupportedVersion:
+		return ProtoVersionV1
+	case controllerVersion > MaxSupportedVersion:
+		return MaxSupportedVersion
+	default:
+		return controllerVersion
+	}
 }

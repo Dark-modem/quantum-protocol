@@ -10,6 +10,14 @@ type Hello struct {
 	OS       string   `json:"os"`
 	Arch     string   `json:"arch"`
 	Caps     []string `json:"caps,omitempty"`
+
+	// MaxVersion is the highest protocol version the agent speaks
+	// (Phase 2A, additive). A v1 controller decodes it and drops it —
+	// the session stays v1. See NegotiateOrV1.
+	MaxVersion int `json:"max_version,omitempty"`
+	// EngineCatalog lists the engine IDs the agent can drive (the
+	// registry contents at hello time).
+	EngineCatalog []string `json:"engine_catalog,omitempty"`
 }
 
 // Welcome is the controller's answer to hello.
@@ -17,6 +25,10 @@ type Welcome struct {
 	OK     bool   `json:"ok"`
 	Error  string `json:"error,omitempty"`
 	Server string `json:"server,omitempty"` // controller version
+	// Version is the negotiated session version (Phase 2A, additive).
+	// A v1 controller omits it; the agent then stays v1 for the whole
+	// session (NegotiateOrV1).
+	Version int `json:"version,omitempty"`
 }
 
 // Heartbeat is sent periodically and on demand; it carries the
