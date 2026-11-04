@@ -1,0 +1,9 @@
+{
+  "v": 2,
+  "type": "command",
+  "data": {
+    "id": "cmd_hardening0001",
+    "op": "hardening.apply",
+    "params": {"profile": "hardening/v3-baseline", "confirm": "yes", "rollback_timer_s": "300"}
+  }
+}

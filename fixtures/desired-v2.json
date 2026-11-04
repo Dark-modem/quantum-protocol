@@ -1,0 +1,28 @@
+{
+  "v": 2,
+  "type": "desired",
+  "data": {
+    "revision": "1796470000000000010",
+    "engines": [
+      {"id": "matrix", "enabled": true},
+      {"id": "wireguard", "enabled": true},
+      {"id": "backhaul", "enabled": false}
+    ],
+    "tunnels": [
+      {"id": "tun-drak1-hz1-a", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "matrix", "engine_params": {"instance": "matrix", "role": "hub"}, "enabled": true},
+      {"id": "tun-drak1-hz1-b", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "wireguard", "engine_params": {"listen_port": 51821, "keepalive_s": 25}, "enabled": true},
+      {"id": "tun-drak1-hz1-c", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "backhaul", "enabled": false},
+      {"id": "tun-drak1-hz2-a", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-2", "engine": "matrix", "engine_params": {"instance": "matrix2", "role": "hub"}, "enabled": true}
+    ],
+    "balancing": {
+      "weights": [
+        {"topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "weight": 70},
+        {"topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-2", "weight": 30},
+        {"tunnel_id": "tun-drak1-hz1-b", "weight": 10}
+      ],
+      "health_check": {"interval_s": 15, "timeout_ms": 2000, "probe": "icmp", "consecutive_down": 3, "consecutive_up": 2},
+      "failover": {"prefer_order": ["hz-fra-1", "hz-fra-2"], "switch_back_s": 300, "max_loss_pct": 20}
+    },
+    "hardening_ref": "hardening/v3-baseline"
+  }
+}

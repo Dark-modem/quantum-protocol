@@ -17,22 +17,30 @@ import (
 // fixtureCase maps one golden fixture file to the envelope type and the
 // typed struct its data must decode into.
 type fixtureCase struct {
-	file string
-	typ  string
-	new  func() any
+	file    string
+	typ     string
+	version int
+	new     func() any
 }
 
 var fixtureCases = []fixtureCase{
-	{"hello.json", MsgHello, func() any { return &Hello{} }},
-	{"welcome.json", MsgWelcome, func() any { return &Welcome{} }},
-	{"heartbeat.json", MsgHeartbeat, func() any { return &Heartbeat{} }},
-	{"desired.json", MsgDesired, func() any { return &Desired{} }},
-	{"ack.json", MsgAck, func() any { return &Ack{} }},
-	{"command.json", MsgCommand, func() any { return &Command{} }},
-	{"result.json", MsgResult, func() any { return &CommandResult{} }},
-	{"register.json", MsgRegister, func() any { return &RegisterMsg{} }},
-	{"register_result.json", MsgRegisterResult, func() any { return &RegisterResult{} }},
-	{"error.json", MsgError, func() any { return &ErrorMsg{} }},
+	{"hello.json", MsgHello, ProtoVersionV1, func() any { return &Hello{} }},
+	{"welcome.json", MsgWelcome, ProtoVersionV1, func() any { return &Welcome{} }},
+	{"heartbeat.json", MsgHeartbeat, ProtoVersionV1, func() any { return &Heartbeat{} }},
+	{"desired.json", MsgDesired, ProtoVersionV1, func() any { return &Desired{} }},
+	{"ack.json", MsgAck, ProtoVersionV1, func() any { return &Ack{} }},
+	{"command.json", MsgCommand, ProtoVersionV1, func() any { return &Command{} }},
+	{"result.json", MsgResult, ProtoVersionV1, func() any { return &CommandResult{} }},
+	{"register.json", MsgRegister, ProtoVersionV1, func() any { return &RegisterMsg{} }},
+	{"register_result.json", MsgRegisterResult, ProtoVersionV1, func() any { return &RegisterResult{} }},
+	{"error.json", MsgError, ProtoVersionV1, func() any { return &ErrorMsg{} }},
+	// v2 (Phase 1A)
+	{"desired-v2.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
+	{"heartbeat-v2.json", MsgHeartbeat, ProtoVersionV2, func() any { return &HeartbeatV2{} }},
+	{"command-hardening-apply.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-hardening-rollback.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-netopt-profile-apply.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"command-netopt-profile-rollback.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {
@@ -47,9 +55,12 @@ func readFixture(t *testing.T, name string) []byte {
 func TestGoldenFixturesDecode(t *testing.T) {
 	for _, fc := range fixtureCases {
 		t.Run(fc.file, func(t *testing.T) {
-			typ, data, err := Decode(readFixture(t, fc.file))
+			version, typ, data, err := DecodeAny(readFixture(t, fc.file))
 			if err != nil {
-				t.Fatalf("Decode(%s): %v", fc.file, err)
+				t.Fatalf("DecodeAny(%s): %v", fc.file, err)
+			}
+			if version != fc.version {
+				t.Fatalf("envelope version = %d, want %d", version, fc.version)
 			}
 			if typ != fc.typ {
 				t.Fatalf("envelope type = %q, want %q", typ, fc.typ)
@@ -62,6 +73,26 @@ func TestGoldenFixturesDecode(t *testing.T) {
 	}
 }
 
+// TestGoldenFixturesDecodeV1Strict pins that every v1 fixture still
+// decodes through the v1-only Decode (the API v1 call sites use).
+func TestGoldenFixturesDecodeV1Strict(t *testing.T) {
+	for _, fc := range fixtureCases {
+		if fc.version != ProtoVersionV1 {
+			continue
+		}
+		t.Run(fc.file, func(t *testing.T) {
+			typ, data, err := Decode(readFixture(t, fc.file))
+			if err != nil {
+				t.Fatalf("Decode(%s): %v", fc.file, err)
+			}
+			if typ != fc.typ {
+				t.Fatalf("type = %q, want %q", typ, fc.typ)
+			}
+			_ = data
+		})
+	}
+}
+
 // TestFixtureRoundTrip re-encodes the decoded fixture and requires the
 // result to be semantically identical (same JSON document; key order is
 // not part of the contract).
@@ -69,15 +100,15 @@ func TestFixtureRoundTrip(t *testing.T) {
 	for _, fc := range fixtureCases {
 		t.Run(fc.file, func(t *testing.T) {
 			raw := readFixture(t, fc.file)
-			_, data, err := Decode(raw)
+			version, data, err := decodeForVersion(raw)
 			if err != nil {
-				t.Fatalf("Decode(%s): %v", fc.file, err)
+				t.Fatalf("decode: %v", err)
 			}
 			msg := fc.new()
 			if err := json.Unmarshal(data, msg); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
-			re, err := Encode(fc.typ, msg)
+			re, err := EncodeVersioned(version, fc.typ, msg)
 			if err != nil {
 				t.Fatalf("re-encode: %v", err)
 			}
@@ -97,85 +128,104 @@ func TestFixtureRoundTrip(t *testing.T) {
 	}
 }
 
+// decodeForVersion decodes a fixture with the version-appropriate API:
+// v1 fixtures go through the v1-only Decode, v2 fixtures through
+// DecodeAny — mirroring how deployed call sites consume them.
+func decodeForVersion(raw []byte) (version int, data json.RawMessage, err error) {
+	if v, _, d, e := DecodeAny(raw); v == ProtoVersionV2 {
+		return v, d, e
+	}
+	_, data, err = Decode(raw)
+	return ProtoVersionV1, data, err
+}
+
 // TestWireStringsPinned guards the literal wire strings against silent
 // renames. These values are shared with deployed agents.
 func TestWireStringsPinned(t *testing.T) {
 	wire := map[string]string{
-		"ProtoVersion":      "1", // compared as int below
-		"HeaderAgentID":     HeaderAgentID,
-		"HeaderAgentKey":    HeaderAgentKey,
-		"HeaderEnrollToken": HeaderEnrollToken,
-		"CapMatrix":         CapMatrix,
-		"CapTraffic":        CapTraffic,
-		"CapHealth":         CapHealth,
-		"CapNodeDetect":     CapNodeDetect,
-		"MsgHello":          MsgHello,
-		"MsgWelcome":        MsgWelcome,
-		"MsgHeartbeat":      MsgHeartbeat,
-		"MsgDesired":        MsgDesired,
-		"MsgAck":            MsgAck,
-		"MsgCommand":        MsgCommand,
-		"MsgResult":         MsgResult,
-		"MsgRegister":       MsgRegister,
-		"MsgRegisterResult": MsgRegisterResult,
-		"MsgError":          MsgError,
-		"CmdMatrixRestart":  CmdMatrixRestart,
-		"CmdMatrixStart":    CmdMatrixStart,
-		"CmdMatrixStop":     CmdMatrixStop,
-		"CmdMatrixRegister": CmdMatrixRegister,
-		"CmdDiagPing":       CmdDiagPing,
-		"CmdAgentUpdate":    CmdAgentUpdate,
-		"CmdFwDetect":       CmdFwDetect,
-		"CmdFwSnapshot":     CmdFwSnapshot,
-		"CmdFwPlan":         CmdFwPlan,
-		"CmdFwApply":        CmdFwApply,
-		"CmdFwTeardown":     CmdFwTeardown,
-		"CmdPortCheck":      CmdPortCheck,
-		"CmdPortList":       CmdPortList,
-		"CmdNetDetect":      CmdNetDetect,
-		"CmdNetPlan":        CmdNetPlan,
-		"CmdNetApply":       CmdNetApply,
-		"CmdNetStatus":      CmdNetStatus,
-		"CmdNetRB":          CmdNetRB,
-		"CmdNetRevert":      CmdNetRevert,
+		"ProtoVersion":          "1", // compared as int below
+		"HeaderAgentID":         HeaderAgentID,
+		"HeaderAgentKey":        HeaderAgentKey,
+		"HeaderEnrollToken":     HeaderEnrollToken,
+		"CapMatrix":             CapMatrix,
+		"CapTraffic":            CapTraffic,
+		"CapHealth":             CapHealth,
+		"CapNodeDetect":         CapNodeDetect,
+		"MsgHello":              MsgHello,
+		"MsgWelcome":            MsgWelcome,
+		"MsgHeartbeat":          MsgHeartbeat,
+		"MsgDesired":            MsgDesired,
+		"MsgAck":                MsgAck,
+		"MsgCommand":            MsgCommand,
+		"MsgResult":             MsgResult,
+		"MsgRegister":           MsgRegister,
+		"MsgRegisterResult":     MsgRegisterResult,
+		"MsgError":              MsgError,
+		"CmdMatrixRestart":      CmdMatrixRestart,
+		"CmdMatrixStart":        CmdMatrixStart,
+		"CmdMatrixStop":         CmdMatrixStop,
+		"CmdMatrixRegister":     CmdMatrixRegister,
+		"CmdDiagPing":           CmdDiagPing,
+		"CmdAgentUpdate":        CmdAgentUpdate,
+		"CmdFwDetect":           CmdFwDetect,
+		"CmdFwSnapshot":         CmdFwSnapshot,
+		"CmdFwPlan":             CmdFwPlan,
+		"CmdFwApply":            CmdFwApply,
+		"CmdFwTeardown":         CmdFwTeardown,
+		"CmdPortCheck":          CmdPortCheck,
+		"CmdPortList":           CmdPortList,
+		"CmdNetDetect":          CmdNetDetect,
+		"CmdNetPlan":            CmdNetPlan,
+		"CmdNetApply":           CmdNetApply,
+		"CmdNetStatus":          CmdNetStatus,
+		"CmdNetRB":              CmdNetRB,
+		"CmdNetRevert":          CmdNetRevert,
+		"CmdHardeningApply":     CmdHardeningApply,
+		"CmdHardeningRollback":  CmdHardeningRollback,
+		"CmdNetProfileApply":    CmdNetProfileApply,
+		"CmdNetProfileRollback": CmdNetProfileRollback,
 	}
 	want := map[string]string{
-		"HeaderAgentID":     "X-Agent-Id",
-		"HeaderAgentKey":    "X-Agent-Key",
-		"HeaderEnrollToken": "X-Enroll-Token",
-		"CapMatrix":         "matrix",
-		"CapTraffic":        "traffic",
-		"CapHealth":         "health",
-		"CapNodeDetect":     "node-detect",
-		"MsgHello":          "hello",
-		"MsgWelcome":        "welcome",
-		"MsgHeartbeat":      "heartbeat",
-		"MsgDesired":        "desired",
-		"MsgAck":            "ack",
-		"MsgCommand":        "command",
-		"MsgResult":         "result",
-		"MsgRegister":       "register",
-		"MsgRegisterResult": "register_result",
-		"MsgError":          "error",
-		"CmdMatrixRestart":  "matrix.restart",
-		"CmdMatrixStart":    "matrix.start",
-		"CmdMatrixStop":     "matrix.stop",
-		"CmdMatrixRegister": "matrix.register",
-		"CmdDiagPing":       "diag.ping",
-		"CmdAgentUpdate":    "agent.update",
-		"CmdFwDetect":       "firewall.detect",
-		"CmdFwSnapshot":     "firewall.snapshot",
-		"CmdFwPlan":         "firewall.plan",
-		"CmdFwApply":        "firewall.apply",
-		"CmdFwTeardown":     "firewall.teardown",
-		"CmdPortCheck":      "port.check",
-		"CmdPortList":       "port.list",
-		"CmdNetDetect":      "netopt.detect",
-		"CmdNetPlan":        "netopt.plan",
-		"CmdNetApply":       "netopt.apply",
-		"CmdNetStatus":      "netopt.status",
-		"CmdNetRB":          "netopt.rollback",
-		"CmdNetRevert":      "netopt.revert",
+		"HeaderAgentID":         "X-Agent-Id",
+		"HeaderAgentKey":        "X-Agent-Key",
+		"HeaderEnrollToken":     "X-Enroll-Token",
+		"CapMatrix":             "matrix",
+		"CapTraffic":            "traffic",
+		"CapHealth":             "health",
+		"CapNodeDetect":         "node-detect",
+		"MsgHello":              "hello",
+		"MsgWelcome":            "welcome",
+		"MsgHeartbeat":          "heartbeat",
+		"MsgDesired":            "desired",
+		"MsgAck":                "ack",
+		"MsgCommand":            "command",
+		"MsgResult":             "result",
+		"MsgRegister":           "register",
+		"MsgRegisterResult":     "register_result",
+		"MsgError":              "error",
+		"CmdMatrixRestart":      "matrix.restart",
+		"CmdMatrixStart":        "matrix.start",
+		"CmdMatrixStop":         "matrix.stop",
+		"CmdMatrixRegister":     "matrix.register",
+		"CmdDiagPing":           "diag.ping",
+		"CmdAgentUpdate":        "agent.update",
+		"CmdFwDetect":           "firewall.detect",
+		"CmdFwSnapshot":         "firewall.snapshot",
+		"CmdFwPlan":             "firewall.plan",
+		"CmdFwApply":            "firewall.apply",
+		"CmdFwTeardown":         "firewall.teardown",
+		"CmdPortCheck":          "port.check",
+		"CmdPortList":           "port.list",
+		"CmdNetDetect":          "netopt.detect",
+		"CmdNetPlan":            "netopt.plan",
+		"CmdNetApply":           "netopt.apply",
+		"CmdNetStatus":          "netopt.status",
+		"CmdNetRB":              "netopt.rollback",
+		"CmdNetRevert":          "netopt.revert",
+		"CmdHardeningApply":     "hardening.apply",
+		"CmdHardeningRollback":  "hardening.rollback",
+		"CmdNetProfileApply":    "netopt.profile.apply",
+		"CmdNetProfileRollback": "netopt.profile.rollback",
 	}
 	for name, got := range wire {
 		if name == "ProtoVersion" {
@@ -261,6 +311,8 @@ func TestValidCommandsComplete(t *testing.T) {
 		CmdFwTeardown: true, CmdPortCheck: true, CmdPortList: true,
 		CmdNetDetect: true, CmdNetPlan: true, CmdNetApply: true, CmdNetStatus: true,
 		CmdNetRB: true, CmdNetRevert: true,
+		CmdHardeningApply: true, CmdHardeningRollback: true,
+		CmdNetProfileApply: true, CmdNetProfileRollback: true,
 	}
 	for op := range cmds {
 		if !ValidCommands[op] {
@@ -273,6 +325,13 @@ func TestValidCommandsComplete(t *testing.T) {
 	for op := range MutatingOps {
 		if !ValidCommands[op] {
 			t.Errorf("mutating op %q not in ValidCommands", op)
+		}
+	}
+	// Profile applies and rollbacks are host-mutating: they must require
+	// the confirm param like the other mutating ops.
+	for _, op := range []string{CmdHardeningApply, CmdHardeningRollback, CmdNetProfileApply, CmdNetProfileRollback} {
+		if !MutatingOps[op] {
+			t.Errorf("profile op %q must be in MutatingOps", op)
 		}
 	}
 }

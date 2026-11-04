@@ -1,0 +1,9 @@
+{
+  "v": 2,
+  "type": "command",
+  "data": {
+    "id": "cmd_netprof0002",
+    "op": "netopt.profile.rollback",
+    "params": {"profile": "netopt/bbr-fq", "confirm": "yes"}
+  }
+}

@@ -99,39 +99,55 @@ const (
 	CmdNetStatus  = "netopt.status"
 	CmdNetRB      = "netopt.rollback"
 	CmdNetRevert  = "netopt.revert"
+
+	// v2 profile commands (hardening/netopt profiles). Mutating applies
+	// and rollbacks require params["confirm"] == "yes" and carry
+	// params["rollback_timer_s"]; see v2.go.
+	CmdHardeningApply     = "hardening.apply"
+	CmdHardeningRollback  = "hardening.rollback"
+	CmdNetProfileApply    = "netopt.profile.apply"
+	CmdNetProfileRollback = "netopt.profile.rollback"
 )
 
 // ValidCommands is the complete remote-operation allowlist.
 var ValidCommands = map[string]bool{
-	CmdMatrixRestart:  true,
-	CmdMatrixStart:    true,
-	CmdMatrixStop:     true,
-	CmdMatrixRegister: true,
-	CmdDiagPing:       true,
-	CmdAgentUpdate:    true,
-	CmdFwDetect:       true,
-	CmdFwSnapshot:     true,
-	CmdFwPlan:         true,
-	CmdFwApply:        true,
-	CmdFwTeardown:     true,
-	CmdPortCheck:      true,
-	CmdPortList:       true,
-	CmdNetDetect:      true,
-	CmdNetPlan:        true,
-	CmdNetApply:       true,
-	CmdNetStatus:      true,
-	CmdNetRB:          true,
-	CmdNetRevert:      true,
+	CmdMatrixRestart:      true,
+	CmdMatrixStart:        true,
+	CmdMatrixStop:         true,
+	CmdMatrixRegister:     true,
+	CmdDiagPing:           true,
+	CmdAgentUpdate:        true,
+	CmdFwDetect:           true,
+	CmdFwSnapshot:         true,
+	CmdFwPlan:             true,
+	CmdFwApply:            true,
+	CmdFwTeardown:         true,
+	CmdPortCheck:          true,
+	CmdPortList:           true,
+	CmdNetDetect:          true,
+	CmdNetPlan:            true,
+	CmdNetApply:           true,
+	CmdNetStatus:          true,
+	CmdNetRB:              true,
+	CmdNetRevert:          true,
+	CmdHardeningApply:     true,
+	CmdHardeningRollback:  true,
+	CmdNetProfileApply:    true,
+	CmdNetProfileRollback: true,
 }
 
 // MutatingOps require payload.confirm == "yes" on the agent and are
 // audit-logged on both sides.
 var MutatingOps = map[string]bool{
-	CmdFwApply:    true,
-	CmdFwTeardown: true,
-	CmdNetApply:   true,
-	CmdNetRB:      true,
-	CmdNetRevert:  true,
+	CmdFwApply:            true,
+	CmdFwTeardown:         true,
+	CmdNetApply:           true,
+	CmdNetRB:              true,
+	CmdNetRevert:          true,
+	CmdHardeningApply:     true,
+	CmdHardeningRollback:  true,
+	CmdNetProfileApply:    true,
+	CmdNetProfileRollback: true,
 }
 
 // Envelope wraps every message in both directions.
@@ -167,5 +183,5 @@ type ProtoMismatchError struct{ Got int }
 
 func (e *ProtoMismatchError) Error() string {
 	return "agent protocol version mismatch: got " + strconv.Itoa(e.Got) +
-		", want " + strconv.Itoa(ProtoVersion)
+		", supported " + strconv.Itoa(MinSupportedVersion) + ".." + strconv.Itoa(MaxSupportedVersion)
 }
