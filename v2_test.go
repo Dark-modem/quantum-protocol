@@ -336,8 +336,7 @@ func TestHardeningCommandFixtures(t *testing.T) {
 		if !ValidCommands[c.Op] {
 			t.Errorf("%s: op %q not allowlisted", f, c.Op)
 		}
-		mutating := strings.HasSuffix(c.Op, ".apply") || strings.HasSuffix(c.Op, ".confirm") ||
-			strings.HasSuffix(c.Op, ".rollback")
+		mutating := strings.HasSuffix(c.Op, ".apply") || strings.HasSuffix(c.Op, ".rollback")
 		if MutatingOps[c.Op] != mutating {
 			t.Errorf("%s: op %q mutating=%v, want %v", f, c.Op, MutatingOps[c.Op], mutating)
 		}

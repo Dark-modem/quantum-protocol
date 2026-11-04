@@ -18,6 +18,20 @@ type Hello struct {
 	// EngineCatalog lists the engine IDs the agent can drive (the
 	// registry contents at hello time).
 	EngineCatalog []string `json:"engine_catalog,omitempty"`
+	// Engines is the rich engine catalog (PROTOCOL-REQUESTS R3): one
+	// entry per registered driver with its version and an opaque
+	// params_schema document the named engine owns. The panel stores it
+	// per agent and hard-validates tunnel engine ids against it.
+	Engines []EngineInfo `json:"engines,omitempty"`
+}
+
+// EngineInfo is one engine catalog entry (PROTOCOL-REQUESTS R3).
+type EngineInfo struct {
+	ID      string `json:"id"`
+	Version string `json:"version,omitempty"`
+	// ParamsSchema is opaque: the named engine owns the document (it
+	// may start as a hint and grow into real schema later).
+	ParamsSchema json.RawMessage `json:"params_schema,omitempty"`
 }
 
 // Welcome is the controller's answer to hello.

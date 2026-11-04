@@ -49,6 +49,10 @@ var fixtureCases = []fixtureCase{
 	{"desired-v2-hardening.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
 	{"desired-v2-forwards.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
 	{"ack-hardening.json", MsgAck, ProtoVersionV2, func() any { return &Ack{} }},
+	// v2 (Phase 2A R1-R3, panel requests)
+	{"desired-v2-forwards-spec.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
+	{"command-netopt-profile-confirm.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
+	{"hello-v2.json", MsgHello, ProtoVersionV2, func() any { return &Hello{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {
@@ -195,6 +199,7 @@ func TestWireStringsPinned(t *testing.T) {
 		"CmdHardeningRollback":  CmdHardeningRollback,
 		"CmdHardeningStatus":    CmdHardeningStatus,
 		"CmdNetProfileApply":    CmdNetProfileApply,
+		"CmdNetProfileConfirm":  CmdNetProfileConfirm,
 		"CmdNetProfileRollback": CmdNetProfileRollback,
 		"CapHardening":          CapHardening,
 	}
@@ -242,6 +247,7 @@ func TestWireStringsPinned(t *testing.T) {
 		"CmdHardeningRollback":  "hardening.rollback",
 		"CmdHardeningStatus":    "hardening.status",
 		"CmdNetProfileApply":    "netopt.profile.apply",
+		"CmdNetProfileConfirm":  "netopt.profile.confirm",
 		"CmdNetProfileRollback": "netopt.profile.rollback",
 		"CapHardening":          "hardening",
 	}
@@ -331,7 +337,7 @@ func TestValidCommandsComplete(t *testing.T) {
 		CmdNetRB: true, CmdNetRevert: true,
 		CmdHardeningDetect: true, CmdHardeningPlan: true, CmdHardeningApply: true,
 		CmdHardeningConfirm: true, CmdHardeningRollback: true, CmdHardeningStatus: true,
-		CmdNetProfileApply: true, CmdNetProfileRollback: true,
+		CmdNetProfileApply: true, CmdNetProfileConfirm: true, CmdNetProfileRollback: true,
 	}
 	for op := range cmds {
 		if !ValidCommands[op] {
@@ -347,12 +353,14 @@ func TestValidCommandsComplete(t *testing.T) {
 		}
 	}
 	// Profile applies and rollbacks are host-mutating: they must require
-	// the confirm param like the other mutating ops (HARDENING.md §5b:
-	// apply/confirm/rollback; detect/plan/status are read-only).
-	if MutatingOps[CmdHardeningDetect] || MutatingOps[CmdHardeningPlan] || MutatingOps[CmdHardeningStatus] {
-		t.Error("hardening detect/plan/status must stay read-only")
+	// the confirm param like the other mutating ops. Confirms are NOT
+	// mutating (PROTOCOL-REQUESTS R2): disarming is the safe direction;
+	// the fail-closed direction is the timer.
+	if MutatingOps[CmdHardeningDetect] || MutatingOps[CmdHardeningPlan] || MutatingOps[CmdHardeningStatus] ||
+		MutatingOps[CmdHardeningConfirm] || MutatingOps[CmdNetProfileConfirm] {
+		t.Error("confirm/detect/plan/status ops must stay non-mutating")
 	}
-	for _, op := range []string{CmdHardeningApply, CmdHardeningConfirm, CmdHardeningRollback, CmdNetProfileApply, CmdNetProfileRollback} {
+	for _, op := range []string{CmdHardeningApply, CmdHardeningRollback, CmdNetProfileApply, CmdNetProfileRollback} {
 		if !MutatingOps[op] {
 			t.Errorf("profile op %q must be in MutatingOps", op)
 		}

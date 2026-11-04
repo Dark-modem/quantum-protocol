@@ -305,9 +305,26 @@ type ForwardRule struct {
 	ID          string `json:"id"`
 	ListenPort  int    `json:"listen_port"`
 	Proto       string `json:"proto"` // "tcp" | "udp" | "both"
-	TargetGroup string `json:"target_group"`
-	TargetPort  int    `json:"target_port"` // port on the foreign side; 0 = same as ListenPort
+	TargetGroup string `json:"target_group,omitempty"`
+	TargetPort  int    `json:"target_port,omitempty"` // port on the foreign side; 0 = same as ListenPort
+
+	// Panel-delivery fields (PROTOCOL-REQUESTS R1): ForwardRule is a
+	// superset of the panel's ForwardSpec — the management plane may
+	// deliver a per-server rule (TopologyID/LocalServer/RemoteServer/
+	// Target, no target_group) or a balanced group rule; both decode
+	// into this struct.
+	TopologyID   string `json:"topology_id,omitempty"`
+	LocalServer  string `json:"local_server,omitempty"`
+	RemoteServer string `json:"remote_server,omitempty"`
+	Target       string `json:"target,omitempty"` // explicit single target (addr[:port]) when no group is used
+	// Enabled is a pointer so all three states are expressible: absent
+	// (nil) = enabled, true = enabled, false = explicitly disabled. The
+	// panel delivers disabled rules to keep agent-side state in sync.
+	Enabled *bool `json:"enabled,omitempty"`
 }
+
+// IsEnabled reports whether the rule is active (nil/true = enabled).
+func (r ForwardRule) IsEnabled() bool { return r.Enabled == nil || *r.Enabled }
 
 // ValidForwardProto reports whether proto is one of the accepted values.
 func ValidForwardProto(p string) bool {

@@ -1,0 +1,12 @@
+{
+  "v": 2,
+  "type": "desired",
+  "data": {
+    "revision": "1796470000000000040",
+    "forwards": [
+      {"id": "fw-drak1-hz1-ssh", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "listen_port": 2201, "proto": "tcp", "target": "10.189.0.2", "target_port": 22, "enabled": true},
+      {"id": "fw-drak1-hz1-dns", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "listen_port": 5353, "proto": "udp", "target": "10.189.0.2", "target_port": 53, "enabled": true},
+      {"id": "fw-drak1-hz1-old", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "listen_port": 8080, "proto": "tcp", "target": "10.189.0.2", "enabled": false}
+    ]
+  }
+}

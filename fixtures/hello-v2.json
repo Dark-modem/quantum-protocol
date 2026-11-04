@@ -1,0 +1,18 @@
+{
+  "v": 2,
+  "type": "hello",
+  "data": {
+    "id": "agt_fixture0001",
+    "version": "v2.0.0",
+    "hostname": "ir-drak-1",
+    "os": "linux",
+    "arch": "amd64",
+    "caps": ["matrix", "traffic", "health", "node-detect", "hardening"],
+    "max_version": 2,
+    "engine_catalog": ["matrix", "wireguard"],
+    "engines": [
+      {"id": "matrix", "version": "v2.0.0", "params_schema": {"instance": "string"}},
+      {"id": "wireguard", "version": "v2.0.0"}
+    ]
+  }
+}

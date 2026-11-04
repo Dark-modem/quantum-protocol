@@ -124,6 +124,7 @@ const (
 	// params["confirm"] == "yes" and carry params["rollback_timer_s"];
 	// see v2.go.
 	CmdNetProfileApply    = "netopt.profile.apply"
+	CmdNetProfileConfirm  = "netopt.profile.confirm"
 	CmdNetProfileRollback = "netopt.profile.rollback"
 )
 
@@ -155,11 +156,16 @@ var ValidCommands = map[string]bool{
 	CmdHardeningRollback:  true,
 	CmdHardeningStatus:    true,
 	CmdNetProfileApply:    true,
+	CmdNetProfileConfirm:  true,
 	CmdNetProfileRollback: true,
 }
 
 // MutatingOps require payload.confirm == "yes" on the agent and are
 // audit-logged on both sides.
+// MutatingOps require payload.confirm == "yes" on the agent. Deliberate
+// (PROTOCOL-REQUESTS R2): the confirm ops are NOT mutating — they only
+// DISARM a pending rollback, and the fail-closed direction is the timer,
+// which stays armed when the op is unknown.
 var MutatingOps = map[string]bool{
 	CmdFwApply:            true,
 	CmdFwTeardown:         true,
@@ -167,7 +173,6 @@ var MutatingOps = map[string]bool{
 	CmdNetRB:              true,
 	CmdNetRevert:          true,
 	CmdHardeningApply:     true,
-	CmdHardeningConfirm:   true,
 	CmdHardeningRollback:  true,
 	CmdNetProfileApply:    true,
 	CmdNetProfileRollback: true,
