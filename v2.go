@@ -153,6 +153,11 @@ type FailoverRules struct {
 // BOTH byte counters. Wire bytes come from the carrier interface
 // counters; payload bytes from the engine's own accounting. Quantum
 // statistics are always real bytes — no coefficient is ever applied here.
+//
+// The Known flags are independent (Phase-4): a UDP engine may know its
+// wire counters but not payload, so consumers must gate each byte view by
+// its own flag instead of the legacy CountersKnown (kept, = wire-known,
+// for v2 wire compatibility with already-deployed peers).
 type TunnelRuntime struct {
 	TunnelID      string  `json:"tunnel_id"`
 	Engine        string  `json:"engine"`
@@ -162,10 +167,15 @@ type TunnelRuntime struct {
 	WireTx        uint64  `json:"wire_tx,omitempty"`
 	PayloadRx     uint64  `json:"payload_rx,omitempty"`
 	PayloadTx     uint64  `json:"payload_tx,omitempty"`
-	CountersKnown bool    `json:"counters_known"`
-	// OverheadRatio = wire/payload over the sample window; present only
-	// when both counters are known and payload > 0.
-	OverheadRatio float64 `json:"overhead_ratio,omitempty"`
+	CountersKnown bool    `json:"counters_known"` // legacy: wire-known
+	WireKnown     bool    `json:"wire_known"`
+	PayloadKnown  bool    `json:"payload_known"`
+	// OverheadRatio / OverheadRatioTx = wire/payload per direction over
+	// the sample window; present only when that direction's counter pair
+	// is known and payload > 0. rx = download on the reporting agent's
+	// side, tx = upload.
+	OverheadRatio   float64 `json:"overhead_ratio,omitempty"`
+	OverheadRatioTx float64 `json:"overhead_ratio_tx,omitempty"`
 }
 
 // EngineOverheadSample is a per-engine overhead observation for the
@@ -175,8 +185,12 @@ type EngineOverheadSample struct {
 	Tunnels   int    `json:"tunnels"`
 	WireRx    uint64 `json:"wire_rx"`
 	PayloadRx uint64 `json:"payload_rx"`
-	// Ratio = WireRx/PayloadRx over the sample window (payload > 0).
-	Ratio float64 `json:"ratio"`
+	WireTx    uint64 `json:"wire_tx"`
+	PayloadTx uint64 `json:"payload_tx"`
+	// Ratio / RatioTx = wire/payload per direction over the sample window
+	// (that direction's payload > 0).
+	Ratio   float64 `json:"ratio"`
+	RatioTx float64 `json:"ratio_tx"`
 }
 
 // StateReportV2 is the v2 full state report (heartbeat payload). The v1

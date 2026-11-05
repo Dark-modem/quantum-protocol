@@ -157,14 +157,22 @@ func TestHeartbeatV2FixtureSemantics(t *testing.T) {
 	if !up.Up || !up.CountersKnown || up.WireRx != 10500000 || up.PayloadRx != 10000000 {
 		t.Fatalf("tunnel runtime: %+v", up)
 	}
+	// Phase-4: the Known flags are independent; a fully-known tunnel sets
+	// both, and the per-direction overhead ratios come from real pairs.
+	if !up.WireKnown || !up.PayloadKnown {
+		t.Fatalf("known tunnel must set both flags: %+v", up)
+	}
 	if up.OverheadRatio < 1.0499 || up.OverheadRatio > 1.0501 {
 		t.Fatalf("overhead ratio = %v, want ~1.05", up.OverheadRatio)
 	}
+	if up.OverheadRatioTx < 1.0499 || up.OverheadRatioTx > 1.0501 {
+		t.Fatalf("tx overhead ratio = %v, want ~1.05", up.OverheadRatioTx)
+	}
 	down := st.Tunnels[1]
-	if down.Up || down.CountersKnown || down.OverheadRatio != 0 {
+	if down.Up || down.CountersKnown || down.WireKnown || down.PayloadKnown || down.OverheadRatio != 0 {
 		t.Fatalf("down tunnel must carry no counters: %+v", down)
 	}
-	if st.Engines[0].Engine != "matrix" || st.Engines[0].Ratio != 1.05 {
+	if st.Engines[0].Engine != "matrix" || st.Engines[0].Ratio != 1.05 || st.Engines[0].RatioTx != 1.05 {
 		t.Fatalf("engine overhead: %+v", st.Engines[0])
 	}
 	// The v1 matrix block still rides along for the matrix driver.

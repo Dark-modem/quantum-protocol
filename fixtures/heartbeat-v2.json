@@ -10,11 +10,11 @@
         {"instance": "matrix", "role": "hub", "enabled": true, "service": true, "iface": "qmx0", "iface_up": true, "port": 51820, "mesh_ip": "10.189.0.1", "peers": [{"name": "ir-drak-1", "ip": "10.189.0.2", "ok": true, "latency_ms": 12.5}], "registered": true, "revision": "1796470000000000010"}
       ],
       "tunnels": [
-        {"tunnel_id": "tun-drak1-hz1-a", "engine": "matrix", "up": true, "latency_ms": 12.5, "wire_rx": 10500000, "wire_tx": 2100000, "payload_rx": 10000000, "payload_tx": 2000000, "counters_known": true, "overhead_ratio": 1.05},
-        {"tunnel_id": "tun-drak1-hz1-b", "engine": "wireguard", "up": false, "counters_known": false}
+        {"tunnel_id": "tun-drak1-hz1-a", "engine": "matrix", "up": true, "latency_ms": 12.5, "wire_rx": 10500000, "wire_tx": 2100000, "payload_rx": 10000000, "payload_tx": 2000000, "counters_known": true, "wire_known": true, "payload_known": true, "overhead_ratio": 1.05, "overhead_ratio_tx": 1.05},
+        {"tunnel_id": "tun-drak1-hz1-b", "engine": "wireguard", "up": false, "counters_known": false, "wire_known": false, "payload_known": false}
       ],
       "engines": [
-        {"engine": "matrix", "tunnels": 1, "wire_rx": 10500000, "payload_rx": 10000000, "ratio": 1.05}
+        {"engine": "matrix", "tunnels": 1, "wire_rx": 10500000, "payload_rx": 10000000, "wire_tx": 2100000, "payload_tx": 2000000, "ratio": 1.05, "ratio_tx": 1.05}
       ],
       "resources": {"cpu_cores": 4, "cpu_percent": 7.5, "load_avg_1": 0.4, "mem_total_mb": 4096, "mem_used_mb": 1024, "disk_total_gb": 40, "disk_used_gb": 12, "uptime_s": 3600, "virt": "kvm"}
     }
