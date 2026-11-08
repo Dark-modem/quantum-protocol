@@ -176,6 +176,48 @@ type TunnelRuntime struct {
 	// side, tx = upload.
 	OverheadRatio   float64 `json:"overhead_ratio,omitempty"`
 	OverheadRatioTx float64 `json:"overhead_ratio_tx,omitempty"`
+	// Additive (Phase 11, UI data): per-tunnel extras the agent knows.
+	// LastError is the engine's last health/reconcile detail when not
+	// healthy. LossPct only when the engine measures packet loss.
+	// UptimeS = how long THIS tunnel instance has been running (0 when
+	// unknown or down).
+	LastError string  `json:"last_error,omitempty"`
+	LossPct   float64 `json:"loss_pct,omitempty"`
+	UptimeS   int64   `json:"uptime_s,omitempty"`
+}
+
+// TunnelProc is one running tunnel's PROCESS resource usage (Phase 11,
+// UI data): CPU percent and resident memory of the engine's supervised
+// process tree, sampled cheaply from /proc. Known=false means the number
+// is unavailable (kernel-only engines such as wireguard/matrix, or the
+// process tree could not be read) — consumers must show "unknown", not 0.
+// The tree's CPU percent is summed over its processes against the sample
+// interval, so one process pegging one core reports 100; two busy
+// workers may report 200. RSS is the SUM of the tree's VmRSS (shared
+// pages between processes of the same tree count per process — the
+// honest per-instance footprint is <= this sum).
+type TunnelProc struct {
+	TunnelID   string  `json:"tunnel_id"`
+	Known      bool    `json:"known"`
+	CPUPercent float64 `json:"cpu_percent,omitempty"`
+	RSSBytes   int64   `json:"rss_bytes,omitempty"`
+	Processes  int     `json:"processes,omitempty"`
+}
+
+// EngineStatusReport is one engine's INSTALLATION state on the reporting
+// agent (Phase 11, UI data). Installed/version/bytes come from the
+// engine driver (its binary on disk, or the kernel tooling for
+// kernel-only engines); Enabled mirrors the desired EngineSpec flag;
+// Instances counts running tunnels on this engine. LastError is the last
+// install/start error text (redacted by the panel before display).
+type EngineStatusReport struct {
+	Engine      string `json:"engine"`
+	Installed   bool   `json:"installed"`
+	Version     string `json:"version,omitempty"`
+	BytesOnDisk int64  `json:"bytes_on_disk,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Instances   int    `json:"instances"`
+	LastError   string `json:"last_error,omitempty"`
 }
 
 // EngineOverheadSample is a per-engine overhead observation for the
@@ -210,6 +252,11 @@ type StateReportV2 struct {
 	// Forwards mirrors the enforced local forwarding (one entry per
 	// ForwardRule: healthy targets and the weights in effect).
 	Forwards []ForwardRuntime `json:"forwards,omitempty"`
+	// Additive (Phase 11, UI data): per-tunnel process metrics and
+	// per-engine installation state. Older peers ignore these fields
+	// (unknown JSON keys); absent = the agent is older / nothing to say.
+	Proc         []TunnelProc         `json:"proc,omitempty"`
+	EngineStatus []EngineStatusReport `json:"engine_status,omitempty"`
 }
 
 // ---- v2 commands ------------------------------------------------------

@@ -53,6 +53,8 @@ var fixtureCases = []fixtureCase{
 	{"desired-v2-forwards-spec.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
 	{"command-netopt-profile-confirm.json", MsgCommand, ProtoVersionV2, func() any { return &Command{} }},
 	{"hello-v2.json", MsgHello, ProtoVersionV2, func() any { return &Hello{} }},
+	// v2 (Phase 11): per-tunnel process metrics + engine installation status
+	{"heartbeat-v2-proc.json", MsgHeartbeat, ProtoVersionV2, func() any { return &HeartbeatV2{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {

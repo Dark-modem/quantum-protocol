@@ -181,6 +181,61 @@ func TestHeartbeatV2FixtureSemantics(t *testing.T) {
 	}
 }
 
+// TestHeartbeatV2ProcFixture pins the Phase-11 ADDITIVE report fields:
+// per-tunnel process metrics (Known=false must decode honestly) and
+// per-engine installation status. The older heartbeat-v2 fixture above
+// must keep decoding with these fields ABSENT (backward compatibility).
+func TestHeartbeatV2ProcFixture(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "heartbeat-v2-proc.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hb HeartbeatV2
+	if err := json.Unmarshal(data, &hb); err != nil {
+		t.Fatal(err)
+	}
+	st := hb.State
+	if st == nil || len(st.Tunnels) != 2 || len(st.Proc) != 2 || len(st.EngineStatus) != 3 {
+		t.Fatalf("state: %+v", st)
+	}
+	p0, p1 := st.Proc[0], st.Proc[1]
+	if !p0.Known || p0.CPUPercent != 3.25 || p0.RSSBytes != 14221312 || p0.Processes != 1 {
+		t.Fatalf("proc[0]: %+v", p0)
+	}
+	if p1.Known || p1.CPUPercent != 0 || p1.RSSBytes != 0 {
+		t.Fatalf("proc[1] must be known=false with zero values: %+v", p1)
+	}
+	if st.Tunnels[0].UptimeS != 3600 || st.Tunnels[0].LastError != "" {
+		t.Fatalf("tunnel[0] extras: %+v", st.Tunnels[0])
+	}
+	if st.Tunnels[1].LossPct != 0.5 || st.Tunnels[1].UptimeS != 7200 {
+		t.Fatalf("tunnel[1] extras: %+v", st.Tunnels[1])
+	}
+	chisel := st.EngineStatus[0]
+	if chisel.Engine != "chisel" || !chisel.Installed || chisel.Version != "v1.10.1" ||
+		chisel.BytesOnDisk != 14893056 || !chisel.Enabled || chisel.Instances != 1 {
+		t.Fatalf("engine_status[0]: %+v", chisel)
+	}
+	rat := st.EngineStatus[2]
+	if rat.Engine != "rathole" || rat.Installed || rat.Enabled || rat.LastError == "" {
+		t.Fatalf("engine_status[2]: %+v", rat)
+	}
+
+	// Back-compat: the ORIGINAL heartbeat-v2 fixture has no proc /
+	// engine_status — decoding must yield empty slices, not errors.
+	_, _, data, err = DecodeAny(readFixture(t, "heartbeat-v2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var old HeartbeatV2
+	if err := json.Unmarshal(data, &old); err != nil {
+		t.Fatal(err)
+	}
+	if len(old.State.Proc) != 0 || len(old.State.EngineStatus) != 0 {
+		t.Fatalf("old fixture must decode without the new fields: %+v", old.State)
+	}
+}
+
 func TestProfileCommandFixtures(t *testing.T) {
 	for _, f := range []string{"command-hardening-apply.json", "command-hardening-rollback.json",
 		"command-netopt-profile-apply.json", "command-netopt-profile-rollback.json"} {

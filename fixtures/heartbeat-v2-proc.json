@@ -1,0 +1,24 @@
+{
+  "v": 2,
+  "type": "heartbeat",
+  "data": {
+    "ts": 1796482800,
+    "uptime_s": 7200,
+    "state": {
+      "applied_revision": "1796480000000000011",
+      "tunnels": [
+        {"tunnel_id": "tun-drak1-hz1-a", "engine": "chisel", "up": true, "latency_ms": 18.5, "wire_rx": 20500000, "wire_tx": 4100000, "payload_rx": 19000000, "payload_tx": 3900000, "counters_known": true, "wire_known": true, "payload_known": true, "overhead_ratio": 1.079, "uptime_s": 3600},
+        {"tunnel_id": "tun-drak1-hz1-b", "engine": "wireguard", "up": true, "counters_known": true, "wire_known": true, "payload_known": false, "loss_pct": 0.5, "uptime_s": 7200}
+      ],
+      "proc": [
+        {"tunnel_id": "tun-drak1-hz1-a", "known": true, "cpu_percent": 3.25, "rss_bytes": 14221312, "processes": 1},
+        {"tunnel_id": "tun-drak1-hz1-b", "known": false}
+      ],
+      "engine_status": [
+        {"engine": "chisel", "installed": true, "version": "v1.10.1", "bytes_on_disk": 14893056, "enabled": true, "instances": 1},
+        {"engine": "wireguard", "installed": true, "enabled": true, "instances": 1},
+        {"engine": "rathole", "installed": false, "enabled": false, "instances": 0, "last_error": "artifact missing for arch arm64"}
+      ]
+    }
+  }
+}
