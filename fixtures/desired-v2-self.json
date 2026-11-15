@@ -1,0 +1,23 @@
+{
+  "v": 2,
+  "type": "desired",
+  "data": {
+    "revision": "1796470000000000020",
+    "self": {"name": "ir-drak-1", "role": "iran"},
+    "engines": [
+      {"id": "frp", "enabled": true},
+      {"id": "matrix", "enabled": true}
+    ],
+    "tunnels": [
+      {"id": "tun-drak1-hz1-a", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "matrix", "engine_params": {"instance": "matrix", "role": "hub"}, "enabled": true},
+      {"id": "tun-drak1-hz1-b", "topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "engine": "frp", "engine_params": {"instance": "frp1"}, "enabled": true}
+    ],
+    "balancing": {
+      "weights": [
+        {"topology_id": "topo-drak-hetzner", "local_server": "ir-drak-1", "remote_server": "hz-fra-1", "weight": 70}
+      ],
+      "health_check": {"interval_s": 15, "timeout_ms": 2000, "probe": "engine", "consecutive_down": 3, "consecutive_up": 2},
+      "failover": {"switch_back_s": 300, "max_loss_pct": 20}
+    }
+  }
+}
