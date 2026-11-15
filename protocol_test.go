@@ -55,6 +55,8 @@ var fixtureCases = []fixtureCase{
 	{"hello-v2.json", MsgHello, ProtoVersionV2, func() any { return &Hello{} }},
 	// v2 (Phase 11): per-tunnel process metrics + engine installation status
 	{"heartbeat-v2-proc.json", MsgHeartbeat, ProtoVersionV2, func() any { return &HeartbeatV2{} }},
+	// v2 (Phase 17 R6): per-agent self identifier stamped by the panel
+	{"desired-v2-self.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {
@@ -389,5 +391,79 @@ func TestEncodeDecodeSymmetry(t *testing.T) {
 	}
 	if !reflect.DeepEqual(hello, back) {
 		t.Fatalf("round trip mismatch: %+v vs %+v", hello, back)
+	}
+}
+
+// TestDesiredV2Self (R6, phase 17): the panel stamps Self with the
+// receiving agent's mesh server name; the fixture pins the wire shape.
+// Backward compatibility: pre-R6 documents (desired-v2.json) have NO
+// Self and every helper must answer false, and an old agent decoding a
+// Self-stamped document ignores the unknown field.
+func TestDesiredV2Self(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "desired-v2-self.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc DesiredV2
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Self == nil || doc.Self.Name != "ir-drak-1" || doc.Self.Role != "iran" {
+		t.Fatalf("self not decoded: %+v", doc.Self)
+	}
+	if !doc.IsSelfServer("ir-drak-1") {
+		t.Fatal("IsSelfServer must match the stamped name")
+	}
+	if doc.IsSelfServer("hz-fra-1") || doc.IsSelfServer("") {
+		t.Fatal("IsSelfServer must not match other/empty names")
+	}
+
+	// Pre-R6 document: no Self, helper always false.
+	_, _, preData, err := DecodeAny(readFixture(t, "desired-v2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pre DesiredV2
+	if err := json.Unmarshal(preData, &pre); err != nil {
+		t.Fatal(err)
+	}
+	if pre.Self != nil || pre.IsSelfServer("ir-drak-1") {
+		t.Fatalf("pre-R6 doc must have no Self: %+v", pre.Self)
+	}
+
+	// A typed struct WITHOUT the field (an old agent's inlined copy)
+	// silently drops the unknown key — the compat property R6 relies on.
+	var legacy struct {
+		Revision string       `json:"revision"`
+		Engines  []EngineSpec `json:"engines,omitempty"`
+	}
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Revision == "" || len(legacy.Engines) == 0 {
+		t.Fatalf("legacy decode lost known fields: %+v", legacy)
+	}
+
+	// Encode/decode round trip keeps Self (wire symmetry both sides need).
+	b, err := json.Marshal(&doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back DesiredV2
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Self == nil || back.Self.Name != "ir-drak-1" || back.Self.Role != "iran" {
+		t.Fatalf("self lost on round trip: %+v", back.Self)
+	}
+
+	// Nil-receiver and empty-name edges.
+	var nilDoc *DesiredV2
+	if nilDoc.IsSelfServer("x") {
+		t.Fatal("nil doc must answer false")
+	}
+	empty := DesiredV2{Self: &SelfInfo{}}
+	if empty.IsSelfServer("") || empty.IsSelfServer("x") {
+		t.Fatal("empty Self.Name must answer false")
 	}
 }

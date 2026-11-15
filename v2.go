@@ -92,6 +92,33 @@ type DesiredV2 struct {
 	// publish service ports balanced across a group.
 	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
 	Forwards     []ForwardRule `json:"forwards,omitempty"`
+	// Self (R6, additive — PROTOCOL-REQUESTS.md): identifies the
+	// RECEIVING agent inside this document — the mesh server name the
+	// panel linked it to (the enrollment name). The agent locates
+	// itself in tunnels/weights/forwards by NAME instead of guessing
+	// (e.g. FRP role resolution: which end of a tunnel is frps vs
+	// frpc). Pre-R6 panels omit it; pre-R6 agents ignore it (unknown
+	// JSON field) — no envelope or negotiation change, ProtoVersionV2
+	// stays.
+	Self *SelfInfo `json:"self,omitempty"`
+}
+
+// SelfInfo names the agent's own server inside a DesiredV2 document.
+// Name is spelled EXACTLY like TunnelSpec.LocalServer/RemoteServer and
+// the balancing/forward server fields (one source of truth: the panel's
+// mesh server name — the enrollment-name alignment R6 asks for). Role
+// is the panel's server role ("iran" | "foreign") for engines that
+// place their roles by direction.
+type SelfInfo struct {
+	Name string `json:"name"`
+	Role string `json:"role,omitempty"`
+}
+
+// IsSelfServer: is the server named `name` THIS agent? Always false for
+// a document without Self (pre-R6 panel) or an empty Self.Name — the
+// caller must fall back to its pre-R6 behavior in that case.
+func (d *DesiredV2) IsSelfServer(name string) bool {
+	return d != nil && d.Self != nil && d.Self.Name != "" && d.Self.Name == name
 }
 
 // EngineSpec enables or disables one engine on the agent. A disabled
