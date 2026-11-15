@@ -284,6 +284,13 @@ type StateReportV2 struct {
 	// (unknown JSON keys); absent = the agent is older / nothing to say.
 	Proc         []TunnelProc         `json:"proc,omitempty"`
 	EngineStatus []EngineStatusReport `json:"engine_status,omitempty"`
+	// Additive (R7, PROTOCOL-REQUESTS): the AGENT's own clock at report
+	// time (unix seconds). 0 = absent/legacy agent — consumers must skip
+	// silently (the panel's clock_drift alert evaluates only agents that
+	// report it). Deliberately inside the state document (NOT the
+	// envelope's ts): it rides the same persisted, fixture-pinned shape
+	// the panel evaluates stored state from.
+	ReportedAt int64 `json:"reported_at,omitempty"`
 }
 
 // ---- v2 commands ------------------------------------------------------
