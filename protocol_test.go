@@ -57,6 +57,8 @@ var fixtureCases = []fixtureCase{
 	{"heartbeat-v2-proc.json", MsgHeartbeat, ProtoVersionV2, func() any { return &HeartbeatV2{} }},
 	// v2 (Phase 17 R6): per-agent self identifier stamped by the panel
 	{"desired-v2-self.json", MsgDesired, ProtoVersionV2, func() any { return &DesiredV2{} }},
+	// v2 (R7): the agent's own report clock rides the persisted state doc
+	{"heartbeat-v2-reported-at.json", MsgHeartbeat, ProtoVersionV2, func() any { return &HeartbeatV2{} }},
 }
 
 func readFixture(t *testing.T, name string) []byte {
@@ -465,5 +467,57 @@ func TestDesiredV2Self(t *testing.T) {
 	empty := DesiredV2{Self: &SelfInfo{}}
 	if empty.IsSelfServer("") || empty.IsSelfServer("x") {
 		t.Fatal("empty Self.Name must answer false")
+	}
+}
+
+// TestStateReportV2ReportedAt (R7): the agent's own report clock rides the
+// persisted state document; pre-R7 reports (heartbeat-v2.json) have NO
+// reported_at and decode as 0 — the panel's clock_drift rule skips those
+// silently. The round trip must preserve the field (the panel evaluates
+// stored state, not live envelopes).
+func TestStateReportV2ReportedAt(t *testing.T) {
+	_, _, data, err := DecodeAny(readFixture(t, "heartbeat-v2-reported-at.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hb HeartbeatV2
+	if err := json.Unmarshal(data, &hb); err != nil {
+		t.Fatal(err)
+	}
+	if hb.State == nil {
+		t.Fatal("fixture lost its state document")
+	}
+	if hb.State.ReportedAt != hb.TS-5 {
+		t.Fatalf("reported_at = %d, want ts-5 = %d", hb.State.ReportedAt, hb.TS-5)
+	}
+
+	// Pre-R7 heartbeat: absent field decodes as 0 (the legacy-skip signal).
+	_, _, preData, err := DecodeAny(readFixture(t, "heartbeat-v2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pre HeartbeatV2
+	if err := json.Unmarshal(preData, &pre); err != nil {
+		t.Fatal(err)
+	}
+	if pre.State == nil || pre.State.ReportedAt != 0 {
+		t.Fatalf("pre-R7 state must decode with ReportedAt=0: %+v", pre.State)
+	}
+
+	// Round trip through the wire envelope keeps the field.
+	re, err := EncodeVersioned(ProtoVersionV2, MsgHeartbeat, &hb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, reData, err := DecodeAny(re)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back HeartbeatV2
+	if err := json.Unmarshal(reData, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.State == nil || back.State.ReportedAt != hb.State.ReportedAt {
+		t.Fatalf("reported_at lost on round trip: %+v", back.State)
 	}
 }
