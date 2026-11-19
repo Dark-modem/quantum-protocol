@@ -160,8 +160,6 @@ var ValidCommands = map[string]bool{
 	CmdNetProfileRollback: true,
 }
 
-// MutatingOps require payload.confirm == "yes" on the agent and are
-// audit-logged on both sides.
 // MutatingOps require payload.confirm == "yes" on the agent. Deliberate
 // (PROTOCOL-REQUESTS R2): the confirm ops are NOT mutating — they only
 // DISARM a pending rollback, and the fail-closed direction is the timer,
